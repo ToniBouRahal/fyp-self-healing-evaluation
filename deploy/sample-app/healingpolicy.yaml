@@ -1,0 +1,60 @@
+apiVersion: healing.fyp.io/v1alpha1
+kind: HealingPolicy
+metadata:
+  name: demo-api-policy
+  namespace: default
+spec:
+  targetRef:
+    kind: Deployment
+    name: demo-api
+    namespace: default
+  rules:
+    - name: rollback-on-error-spike
+      priority: 10
+      conditions:
+        - source: metric
+          key: rate(http_requests_total{status=~"5..",app="demo-api"}[2m])
+          operator: ">="
+          value: 5
+        - source: metric
+          key: histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{app="demo-api"}[2m])) by (le))
+          operator: ">="
+          value: 1
+      action: RollbackRelease
+      actionParams:
+        release: demo-api
+        namespace: default
+      cooldownSeconds: 300
+      maxExecutionsPerHour: 2
+
+    - name: scale-on-load
+      priority: 20
+      conditions:
+        - source: metric
+          key: sum(rate(http_requests_total{app="demo-api"}[2m]))
+          operator: ">="
+          value: 50
+      action: ScaleDeployment
+      actionParams:
+        deployment: demo-api
+        replicas: 4
+      cooldownSeconds: 120
+      maxExecutionsPerHour: 6
+
+    - name: restart-on-crash-pattern
+      priority: 30
+      conditions:
+        - source: metric
+          key: increase(kube_pod_container_status_restarts_total{namespace="default",pod=~"demo-api.*"}[5m])
+          operator: ">"
+          value: 3
+        - source: log
+          key: '{app="demo-api"} |= "Exception"'
+          operator: contains
+          value: Exception
+      action: RestartPod
+      actionParams:
+        labelSelector: app=demo-api
+        maxPods: 1
+      cooldownSeconds: 180
+      maxExecutionsPerHour: 8

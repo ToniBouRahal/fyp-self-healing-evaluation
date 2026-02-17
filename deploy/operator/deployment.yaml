@@ -1,0 +1,30 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: healing-operator
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: healing-operator
+  template:
+    metadata:
+      labels:
+        app: healing-operator
+    spec:
+      serviceAccountName: healing-operator
+      containers:
+        - name: operator
+          image: healing-operator:0.1.0
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: LOG_LEVEL
+              value: INFO
+            - name: PROMETHEUS_URL
+              value: http://prometheus.monitoring.svc.cluster.local:9090
+            - name: LOKI_URL
+              value: http://loki.monitoring.svc.cluster.local:3100
+            - name: HEALING_TIMER_INTERVAL_SECONDS
+              value: "30"
+          command: ["python", "-m", "healing_operator.main"]

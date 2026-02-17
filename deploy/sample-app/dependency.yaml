@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dependency
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: dependency
+  template:
+    metadata:
+      labels:
+        app: dependency
+    spec:
+      containers:
+        - name: dependency
+          image: hashicorp/http-echo:1.0
+          args: ["-text=dependency-ok", "-listen=:5678"]
+          ports:
+            - containerPort: 5678
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: dependency
+  namespace: default
+spec:
+  selector:
+    app: dependency
+  ports:
+    - port: 5678
+      targetPort: 5678
